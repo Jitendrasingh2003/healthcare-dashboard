@@ -5,10 +5,31 @@ export type Role = "Admin" | "Doctor" | "Nurse";
 
 export function useRole(): Role {
     const [role, setRole] = useState<Role>("Admin");
+
     useEffect(() => {
+        // Fast initial load from localStorage
         const saved = localStorage.getItem("role") as Role | null;
         if (saved) setRole(saved);
+
+        // Verify with backend
+        fetch("/api/auth/me")
+            .then(res => res.json())
+            .then(data => {
+                if (data.authenticated && data.user.role) {
+                    setRole(data.user.role);
+                    localStorage.setItem("role", data.user.role);
+                } else {
+                    // Not authenticated
+                    localStorage.removeItem("loggedIn");
+                    localStorage.removeItem("role");
+                    if (window.location.pathname !== "/login" && window.location.pathname !== "/register" && window.location.pathname !== "/landing") {
+                        window.location.href = "/login";
+                    }
+                }
+            })
+            .catch(err => console.error("Auth check failed:", err));
     }, []);
+
     return role;
 }
 

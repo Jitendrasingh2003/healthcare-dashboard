@@ -6,23 +6,48 @@ import { useTheme } from "next-themes";
 import {
     LayoutDashboard, Users, Stethoscope, Activity,
     Settings, LogOut, Heart, Sun, Moon, Building2,
-    Calendar, UserCheck, Receipt
+    Calendar, UserCheck, Receipt, FlaskConical,
+    FileText, Pill, BedDouble, ClipboardList, Syringe
 } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 
-import { useRole, rolePermissions } from "../hooks/useRole";
+import { useRole } from "../hooks/useRole";
 
-const allNavItems = [
-    { label: "Hospital", href: "/hospital", icon: Building2, adminOnly: false },
-    { label: "Overview", href: "/", icon: LayoutDashboard, adminOnly: false },
-    { label: "Appointments", href: "/appointments", icon: Calendar, adminOnly: false },
-    { label: "Patients", href: "/patients", icon: Users, adminOnly: false },
-    { label: "Doctors", href: "/doctors", icon: Stethoscope, adminOnly: false },
-    { label: "Staff", href: "/staff", icon: UserCheck, adminOnly: true },
-    { label: "Billing", href: "/billing", icon: Receipt, adminOnly: true },
-    { label: "Operations", href: "/operations", icon: Activity, adminOnly: true },
+// Admin nav — full hospital management
+const adminNavItems = [
+    { label: "Hospital", href: "/hospital", icon: Building2 },
+    { label: "Overview", href: "/", icon: LayoutDashboard },
+    { label: "Appointments", href: "/appointments", icon: Calendar },
+    { label: "Patients", href: "/patients", icon: Users },
+    { label: "Doctors", href: "/doctors", icon: Stethoscope },
+    { label: "Staff", href: "/staff", icon: UserCheck },
+    { label: "Billing", href: "/billing", icon: Receipt },
+    { label: "Operations", href: "/operations", icon: Activity },
 ];
+
+// Doctor nav — patient care focused
+const doctorNavItems = [
+    { label: "Dashboard", href: "/", icon: LayoutDashboard },
+    { label: "My Patients", href: "/patients", icon: Users },
+    { label: "Appointments", href: "/appointments", icon: Calendar },
+    { label: "Lab Reports", href: "/lab-reports", icon: FlaskConical },
+    { label: "Prescriptions", href: "/prescriptions", icon: Pill },
+    { label: "Medical Records", href: "/medical-records", icon: FileText },
+];
+
+// Nurse nav — ward & care focused
+const nurseNavItems = [
+    { label: "Dashboard", href: "/", icon: LayoutDashboard },
+    { label: "Ward Patients", href: "/patients", icon: Users },
+    { label: "Appointments", href: "/appointments", icon: Calendar },
+    { label: "Lab Reports", href: "/lab-reports", icon: FlaskConical },
+    { label: "Vitals Log", href: "/vitals", icon: Activity },
+    { label: "Medication", href: "/medication", icon: Syringe },
+    { label: "Bed Management", href: "/beds", icon: BedDouble },
+    { label: "Handover Notes", href: "/handover", icon: ClipboardList },
+];
+
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -30,22 +55,24 @@ export default function Sidebar() {
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const role = useRole();
-    const perms = rolePermissions[role];
 
-    // Filter nav items based on role permissions
-    const navItems = allNavItems.filter(item => {
-        if (!item.adminOnly) return true;
-        if (item.label === "Staff" || item.label === "Billing" || item.label === "Operations") {
-            return perms.canViewBilling;
+    // Pick nav items based on role
+    const navItems =
+        role === "Doctor" ? doctorNavItems :
+        role === "Nurse" ? nurseNavItems :
+        adminNavItems;
+
+    const handleLogout = async () => {
+        try {
+            await fetch("/api/auth/logout", { method: "POST" });
+        } catch (error) {
+            console.error("Logout failed:", error);
         }
-        return true;
-    });
-
-    const handleLogout = () => {
         localStorage.removeItem("loggedIn");
         localStorage.removeItem("role");
         router.push("/login");
     };
+
 
     return (
         <aside className="fixed left-0 top-0 h-screen w-64 glass border-r-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] flex flex-col z-40 animate-slide-in-right">

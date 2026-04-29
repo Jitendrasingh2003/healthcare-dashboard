@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Users, BedDouble, Stethoscope, AlertCircle, TrendingUp, Activity, ArrowRight, Calendar, FlaskConical, UserPlus, Bell } from "lucide-react";
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer
+  BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, ReferenceLine, Defs, LinearGradient, Stop
 } from "recharts";
 import { useRole } from "./hooks/useRole";
 
@@ -15,6 +15,8 @@ const admissions = [
   { month: "Apr", admitted: 260, discharged: 240 },
   { month: "May", admitted: 245, discharged: 230 },
   { month: "Jun", admitted: 280, discharged: 265 },
+  { month: "Jul", admitted: 295, discharged: 278 },
+  { month: "Aug", admitted: 310, discharged: 290 },
 ];
 
 const departments = [
@@ -26,16 +28,34 @@ const departments = [
 ];
 
 const bedTrend = [
-  { day: "Mon", occ: 70 },
-  { day: "Tue", occ: 74 },
-  { day: "Wed", occ: 80 },
-  { day: "Thu", occ: 82 },
-  { day: "Fri", occ: 78 },
-  { day: "Sat", occ: 75 },
-  { day: "Sun", occ: 78 },
+  { day: "Mon", occ: 70, target: 80 },
+  { day: "Tue", occ: 74, target: 80 },
+  { day: "Wed", occ: 80, target: 80 },
+  { day: "Thu", occ: 82, target: 80 },
+  { day: "Fri", occ: 78, target: 80 },
+  { day: "Sat", occ: 75, target: 80 },
+  { day: "Sun", occ: 78, target: 80 },
+];
+
+const recoveryTrend = [
+  { month: "Jan", rate: 87 },
+  { month: "Feb", rate: 88 },
+  { month: "Mar", rate: 89 },
+  { month: "Apr", rate: 90 },
+  { month: "May", rate: 91 },
+  { month: "Jun", rate: 91 },
+  { month: "Jul", rate: 93 },
+  { month: "Aug", rate: 94 },
 ];
 
 const COLORS = ["#0d9488", "#3b82f6", "#ef4444", "#f59e0b", "#64748b"];
+const DEPT_COLORS = [
+  { main: "#0d9488", light: "#99f6e4" },
+  { main: "#3b82f6", light: "#bfdbfe" },
+  { main: "#a855f7", light: "#e9d5ff" },
+  { main: "#f59e0b", light: "#fde68a" },
+  { main: "#64748b", light: "#cbd5e1" },
+];
 
 const patientsList = [
   { name: "Rahul Agarwal", age: 45, dept: "Cardiology", doctor: "Dr. Mehta", status: "Stable", date: "Apr 19" },
@@ -190,48 +210,150 @@ export default function Home() {
         <>
           {renderKPIs(adminKpis)}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+          {/* Charts Row 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            {/* Monthly Admissions - Enhanced Bar Chart */}
             <div className="glass-card p-6 animate-fade-in-up stagger-3">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-1">Monthly Admissions</h2>
-              <p className="text-xs text-gray-500 mb-6">Jan – Jun 2026</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={admissions}>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Monthly Admissions</h2>
+                <span className="text-[10px] bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-2.5 py-1 rounded-full font-semibold">Jan – Aug 2026</span>
+              </div>
+              <p className="text-xs text-gray-400 mb-5">Admitted vs discharged patients per month</p>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={admissions} barCategoryGap="30%" barGap={4}>
+                  <defs>
+                    <linearGradient id="admitGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0d9488" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#0d9488" stopOpacity={0.5} />
+                    </linearGradient>
+                    <linearGradient id="dischargeGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(156,163,175,0.15)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: 'rgba(200, 200, 200, 0.1)' }} contentStyle={{ background: "rgba(30, 41, 59, 0.8)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", color: "#fff", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} />
-                  <Bar dataKey="admitted" fill="#0d9488" radius={[6, 6, 0, 0]} name="Admitted" animationBegin={200} animationDuration={1200} />
-                  <Bar dataKey="discharged" fill="#3b82f6" radius={[6, 6, 0, 0]} name="Discharged" animationBegin={400} animationDuration={1200} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(200,200,200,0.08)", radius: 8 }}
+                    contentStyle={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "14px", color: "#fff", boxShadow: "0 20px 40px rgba(0,0,0,0.3)", padding: "12px 16px" }}
+                    labelStyle={{ fontWeight: 700, marginBottom: 4, fontSize: 12 }}
+                  />
+                  <Legend
+                    wrapperStyle={{ paddingTop: "16px", fontSize: "12px" }}
+                    formatter={(val) => <span style={{ color: "#9ca3af", fontWeight: 600 }}>{val}</span>}
+                  />
+                  <Bar dataKey="admitted" fill="url(#admitGrad)" radius={[6, 6, 0, 0]} name="Admitted" animationBegin={200} animationDuration={1200} />
+                  <Bar dataKey="discharged" fill="url(#dischargeGrad)" radius={[6, 6, 0, 0]} name="Discharged" animationBegin={400} animationDuration={1200} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            
+
+            {/* Department Load - Enhanced Donut */}
             <div className="glass-card p-6 animate-fade-in-up stagger-4">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-1">Department Load</h2>
-              <p className="text-xs text-gray-500 mb-6">Current patient distribution</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={departments} cx="50%" cy="50%" innerRadius={65} outerRadius={90} dataKey="value" stroke="none" paddingAngle={2} animationBegin={300} animationDuration={1400}>
-                    {departments.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: "rgba(30, 41, 59, 0.8)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", color: "#fff" }} formatter={(v) => `${v}%`} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Department Load</h2>
+                <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2.5 py-1 rounded-full font-semibold">Live</span>
+              </div>
+              <p className="text-xs text-gray-400 mb-2">Current patient distribution by department</p>
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="55%" height={220}>
+                  <PieChart>
+                    <defs>
+                      {DEPT_COLORS.map((c, i) => (
+                        <radialGradient key={i} id={`deptGrad${i}`} cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor={c.light} stopOpacity={0.9} />
+                          <stop offset="100%" stopColor={c.main} stopOpacity={1} />
+                        </radialGradient>
+                      ))}
+                    </defs>
+                    <Pie data={departments} cx="50%" cy="50%" innerRadius={58} outerRadius={88} dataKey="value" stroke="none" paddingAngle={3} animationBegin={300} animationDuration={1400}>
+                      {departments.map((_, i) => (
+                        <Cell key={i} fill={`url(#deptGrad${i})`} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "14px", color: "#fff", padding: "10px 14px" }}
+                      formatter={(v) => [`${v}%`, "Share"]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col gap-2.5 flex-1">
+                  {departments.map((d, i) => (
+                    <div key={d.name} className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: DEPT_COLORS[i].main }} />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">{d.name}</span>
+                          <span className="text-[11px] font-bold text-gray-700 dark:text-gray-200">{d.value}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${d.value}%`, background: DEPT_COLORS[i].main }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="glass-card p-6 mb-8 animate-fade-in-up stagger-5">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-1">Bed Occupancy Trend</h2>
-            <p className="text-xs text-gray-500 mb-6">Last 7 days</p>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={bedTrend}>
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                <YAxis domain={[60, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "rgba(30, 41, 59, 0.8)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", color: "#fff" }} formatter={(v) => `${v}%`} />
-                <Line type="monotone" dataKey="occ" stroke="#0d9488" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: "#fff" }} activeDot={{ r: 6, fill: "#0d9488" }} animationBegin={200} animationDuration={1500} />
-              </LineChart>
-            </ResponsiveContainer>
+          {/* Charts Row 2 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            {/* Bed Occupancy - Area Chart */}
+            <div className="glass-card p-6 animate-fade-in-up stagger-5">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Bed Occupancy Trend</h2>
+                <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2.5 py-1 rounded-full font-semibold">This Week</span>
+              </div>
+              <p className="text-xs text-gray-400 mb-5">Daily occupancy % vs 80% target</p>
+              <ResponsiveContainer width="100%" height={210}>
+                <AreaChart data={bedTrend}>
+                  <defs>
+                    <linearGradient id="bedAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(156,163,175,0.15)" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[60, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip
+                    contentStyle={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "14px", color: "#fff", padding: "10px 14px" }}
+                    formatter={(v) => [`${v}%`]}
+                  />
+                  <ReferenceLine y={80} stroke="#f59e0b" strokeDasharray="5 4" strokeWidth={2} label={{ value: "Target 80%", fill: "#f59e0b", fontSize: 10, position: "insideTopRight" }} />
+                  <Area type="monotone" dataKey="occ" stroke="#0d9488" strokeWidth={3} fill="url(#bedAreaGrad)" dot={{ r: 5, strokeWidth: 2, fill: "#fff", stroke: "#0d9488" }} activeDot={{ r: 7, fill: "#0d9488" }} name="Occupancy" animationBegin={200} animationDuration={1500} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Recovery Rate - Area Chart */}
+            <div className="glass-card p-6 animate-fade-in-up stagger-5">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Recovery Rate</h2>
+                <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2.5 py-1 rounded-full font-semibold">↑ Improving</span>
+              </div>
+              <p className="text-xs text-gray-400 mb-5">Monthly patient recovery rate (%)</p>
+              <ResponsiveContainer width="100%" height={210}>
+                <AreaChart data={recoveryTrend}>
+                  <defs>
+                    <linearGradient id="recoveryGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(156,163,175,0.15)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[84, 96]} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip
+                    contentStyle={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "14px", color: "#fff", padding: "10px 14px" }}
+                    formatter={(v) => [`${v}%`, "Recovery Rate"]}
+                  />
+                  <Area type="monotone" dataKey="rate" stroke="#22c55e" strokeWidth={3} fill="url(#recoveryGrad)" dot={{ r: 5, strokeWidth: 2, fill: "#fff", stroke: "#22c55e" }} activeDot={{ r: 7, fill: "#22c55e" }} animationBegin={300} animationDuration={1500} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {renderPatientTable("Recent Admissions", true)}
