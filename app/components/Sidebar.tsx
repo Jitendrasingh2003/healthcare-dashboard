@@ -7,7 +7,7 @@ import {
     LayoutDashboard, Users, Stethoscope, Activity,
     Settings, LogOut, Heart, Sun, Moon, Building2,
     Calendar, UserCheck, Receipt, FlaskConical,
-    FileText, Pill, BedDouble, ClipboardList, Syringe
+    FileText, Pill, BedDouble, ClipboardList, Syringe, Sparkles
 } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
@@ -24,6 +24,7 @@ const adminNavItems = [
     { label: "Staff", href: "/staff", icon: UserCheck },
     { label: "Billing", href: "/billing", icon: Receipt },
     { label: "Operations", href: "/operations", icon: Activity },
+    { label: "AI Triage", href: "/triage", icon: Sparkles },
 ];
 
 // Doctor nav — patient care focused
@@ -34,6 +35,7 @@ const doctorNavItems = [
     { label: "Lab Reports", href: "/lab-reports", icon: FlaskConical },
     { label: "Prescriptions", href: "/prescriptions", icon: Pill },
     { label: "Medical Records", href: "/medical-records", icon: FileText },
+    { label: "AI Triage", href: "/triage", icon: Sparkles },
 ];
 
 // Nurse nav — ward & care focused

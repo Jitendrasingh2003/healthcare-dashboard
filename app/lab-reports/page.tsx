@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { FlaskConical, Search, CheckCircle, Clock, AlertCircle, Eye, X, Plus } from "lucide-react";
+import { FlaskConical, Search, CheckCircle, Clock, AlertCircle, Eye, X, Plus, Sparkles } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
   Reviewed: "bg-green-100/80 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/50",
@@ -61,6 +61,8 @@ export default function LabReportsPage() {
   const [filter, setFilter] = useState("All");
   const [viewItem, setViewItem] = useState<Report | null>(null);
   const [reviewNote, setReviewNote] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<string | null>(null);
 
   const filtered = reports.filter(r => {
     const matchSearch =
@@ -77,6 +79,35 @@ export default function LabReportsPage() {
     );
     setViewItem(null);
     setReviewNote("");
+    setAiResult(null);
+  };
+
+  const analyzeReport = async (report: Report) => {
+    setIsAnalyzing(true);
+    setAiResult(null);
+    try {
+      const res = await fetch("/api/ai/analyze-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          testName: report.testName,
+          category: report.category,
+          result: report.result,
+          findings: report.findings,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAiResult(data.analysis);
+      } else {
+        setAiResult(`<p class="text-red-500">Error: ${data.error}</p>`);
+      }
+    } catch (error: any) {
+      console.error('Fetch error:', error);
+      setAiResult(`<p class="text-red-500">Error: ${error.message || 'Failed to connect to AI service. Ensure your server is running.'}</p>`);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const counts = {
@@ -189,7 +220,7 @@ export default function LabReportsPage() {
                   </td>
                   <td className="py-4 px-4">
                     <button
-                      onClick={() => { setViewItem(r); setReviewNote(r.notes); }}
+                      onClick={() => { setViewItem(r); setReviewNote(r.notes); setAiResult(null); }}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 active:scale-95 transition-all whitespace-nowrap"
                     >
                       <Eye size={12} /> View
@@ -221,7 +252,7 @@ export default function LabReportsPage() {
                   <h2 className="text-xl font-bold text-gray-800 dark:text-white">{viewItem.testName}</h2>
                   <p className="text-xs text-gray-400 mt-0.5">{viewItem.category} · {viewItem.date}</p>
                 </div>
-                <button onClick={() => setViewItem(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 active:scale-95 transition-all">
+                <button onClick={() => { setViewItem(null); setAiResult(null); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 active:scale-95 transition-all">
                   <X size={16} />
                 </button>
               </div>
@@ -251,6 +282,39 @@ export default function LabReportsPage() {
                   <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{viewItem.findings}</p>
                 </div>
 
+                {/* AI Analysis Section */}
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/30 rounded-xl p-4 relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={16} className="text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-300">AI Clinical Analysis</h3>
+                    </div>
+                    {!aiResult && !isAnalyzing && (
+                      <button onClick={() => analyzeReport(viewItem)} className="flex items-center gap-1.5 text-[11px] font-bold bg-indigo-600 text-white px-3 py-1.5 rounded-lg shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all">
+                        <Sparkles size={12} /> Analyze Now
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isAnalyzing && (
+                    <div className="space-y-2 animate-pulse mt-3">
+                      <div className="h-3 bg-indigo-200/50 dark:bg-indigo-800/50 rounded w-3/4"></div>
+                      <div className="h-3 bg-indigo-200/50 dark:bg-indigo-800/50 rounded w-full"></div>
+                      <div className="h-3 bg-indigo-200/50 dark:bg-indigo-800/50 rounded w-5/6"></div>
+                    </div>
+                  )}
+
+                  {aiResult && (
+                    <div className="prose prose-sm prose-indigo dark:prose-invert max-w-none text-sm text-indigo-950 dark:text-indigo-200 mt-2 [&>h3]:text-indigo-800 [&>h3]:dark:text-indigo-300 [&>h3]:text-xs [&>h3]:uppercase [&>h3]:tracking-wider [&>h3]:mt-4 [&>h3]:mb-1 [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-4" dangerouslySetInnerHTML={{ __html: aiResult }} />
+                  )}
+                  
+                  {!aiResult && !isAnalyzing && (
+                    <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70 mt-1">
+                      Click to generate an AI-powered clinical summary and recommendations.
+                    </p>
+                  )}
+                </div>
+
                 {/* Doctor Note / Review */}
                 {viewItem.status === "Reviewed" ? (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 rounded-xl p-3">
@@ -274,7 +338,7 @@ export default function LabReportsPage() {
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button onClick={() => setViewItem(null)} className="btn-secondary flex-1">Close</button>
+                <button onClick={() => { setViewItem(null); setAiResult(null); }} className="btn-secondary flex-1">Close</button>
                 {viewItem.status !== "Reviewed" && (
                   <button onClick={() => markReviewed(viewItem.id, reviewNote)} className="btn-primary flex-1 gap-2">
                     <CheckCircle size={14} /> Mark as Reviewed

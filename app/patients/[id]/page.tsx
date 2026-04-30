@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, Mail, MapPin, FileText, User, Printer, Download, FlaskConical, Plus } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, FileText, User, Printer, Download, FlaskConical, Plus, Sparkles, X } from "lucide-react";
 import { useRole, rolePermissions } from "../../hooks/useRole";
 import { printPatientCard } from "../../utils/printUtils";
 import EmptyState from "../../components/EmptyState";
@@ -26,6 +26,29 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
     const [showReportForm, setShowReportForm] = useState(false);
     const [reportForm, setReportForm] = useState({ testName: "", result: "", status: "Pending", notes: "", date: "" });
     const [savingReport, setSavingReport] = useState(false);
+    const [showDischargeSummary, setShowDischargeSummary] = useState(false);
+    const [dischargeSummary, setDischargeSummary] = useState<string | null>(null);
+    const [generatingSummary, setGeneratingSummary] = useState(false);
+
+    const generateDischargeSummary = async () => {
+        setShowDischargeSummary(true);
+        if (dischargeSummary) return; // already generated
+        setGeneratingSummary(true);
+        try {
+            const res = await fetch('/api/ai/discharge-summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ patient, reports }),
+            });
+            const data = await res.json();
+            if (res.ok) setDischargeSummary(data.summary);
+            else setDischargeSummary(`<p class="text-red-500">Error: ${data.error}</p>`);
+        } catch (e: any) {
+            setDischargeSummary(`<p class="text-red-500">Failed to connect: ${e.message}</p>`);
+        } finally {
+            setGeneratingSummary(false);
+        }
+    };
 
     useEffect(() => { fetchPatient(); }, [id]);
 
@@ -100,6 +123,15 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
                     <span className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 uppercase tracking-wider">
                         {role}
                     </span>
+                    {/* AI Discharge Summary */}
+                    {(role === "Admin" || role === "Doctor") && (
+                        <button
+                            onClick={generateDischargeSummary}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-indigo-500/30"
+                        >
+                            <Sparkles size={14} /> AI Summary
+                        </button>
+                    )}
                     {/* Print Button */}
                     <button
                         onClick={() => printPatientCard(patient)}
@@ -272,6 +304,59 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
                     </div>
                 )}
             </div>
+
+            {/* AI Discharge Summary Modal */}
+            {showDischargeSummary && (
+                <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+                    <div className="bg-white/98 dark:bg-gray-900/98 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-2xl animate-pop-in flex flex-col" style={{ maxHeight: '90vh' }}>
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <Sparkles size={20} className="text-white" />
+                                <div>
+                                    <p className="text-white font-bold">AI Discharge Summary</p>
+                                    <p className="text-indigo-200 text-xs">{patient.name} · {patient.dept}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowDischargeSummary(false)} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                                <X size={16} className="text-white" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="overflow-y-auto flex-1 p-6">
+                            {generatingSummary ? (
+                                <div className="space-y-3 animate-pulse">
+                                    {[80, 100, 60, 90, 75, 100, 85, 70].map((w, i) => (
+                                        <div key={i} className={`h-3 bg-indigo-100 dark:bg-indigo-900/30 rounded`} style={{ width: `${w}%` }} />
+                                    ))}
+                                    <p className="text-center text-sm text-indigo-400 mt-4 font-medium">✨ Generating clinical summary...</p>
+                                </div>
+                            ) : (
+                                <div
+                                    className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 [&>h3]:text-indigo-800 [&>h3]:dark:text-indigo-300 [&>h3]:font-bold [&>h3]:text-sm [&>h3]:uppercase [&>h3]:tracking-wider [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:pb-1 [&>h3]:border-b [&>h3]:border-indigo-100 [&>h3]:dark:border-indigo-800/30 [&>p]:text-sm [&>p]:leading-relaxed [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1 [&>ul]:text-sm"
+                                    dangerouslySetInnerHTML={{ __html: dischargeSummary || '' }}
+                                />
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+                            <button onClick={() => setShowDischargeSummary(false)} className="btn-secondary flex-1">Close</button>
+                            <button
+                                onClick={() => {
+                                    setDischargeSummary(null);
+                                    setGeneratingSummary(false);
+                                    setTimeout(() => generateDischargeSummary(), 100);
+                                }}
+                                className="flex items-center justify-center gap-2 flex-1 text-sm font-semibold py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 active:scale-95 transition-all"
+                            >
+                                <Sparkles size={14} /> Regenerate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

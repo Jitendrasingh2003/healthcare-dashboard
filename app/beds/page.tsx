@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { BedDouble, Search, UserPlus, UserMinus } from "lucide-react";
+import { BedDouble, Search, UserPlus, UserMinus, Sparkles, X } from "lucide-react";
 
 type BedStatus = "Occupied" | "Available" | "Reserved" | "Maintenance";
 
@@ -47,6 +47,29 @@ export default function BedsPage() {
   const [ward, setWard] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [dischargeId, setDischargeId] = useState<string | null>(null);
+  const [showPrediction, setShowPrediction] = useState(false);
+  const [prediction, setPrediction] = useState<string | null>(null);
+  const [predicting, setPredicting] = useState(false);
+
+  const predictBeds = async () => {
+    setShowPrediction(true);
+    if (prediction) return;
+    setPredicting(true);
+    try {
+      const res = await fetch('/api/ai/bed-predictor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beds }),
+      });
+      const data = await res.json();
+      if (res.ok) setPrediction(data.prediction);
+      else setPrediction(`<p class="text-red-500">Error: ${data.error}</p>`);
+    } catch (e: any) {
+      setPrediction(`<p class="text-red-500">Failed to connect: ${e.message}</p>`);
+    } finally {
+      setPredicting(false);
+    }
+  };
 
   const filtered = beds.filter(b => {
     const matchSearch = b.id.toLowerCase().includes(search.toLowerCase()) || b.patient.toLowerCase().includes(search.toLowerCase());
@@ -76,7 +99,14 @@ export default function BedsPage() {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">Bed Management</h1>
           <p className="text-sm text-gray-500 mt-1">Real-time ward bed status and occupancy</p>
         </div>
-        <div className="glass-card px-5 py-3 min-w-[200px]">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={predictBeds}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-indigo-500/30"
+          >
+            <Sparkles size={15} /> AI Bed Forecast
+          </button>
+          <div className="glass-card px-5 py-3 min-w-[200px]">
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-xs font-semibold text-gray-500">Overall Occupancy</p>
             <p className={`text-sm font-bold ${occupancy >= 85 ? "text-red-500" : occupancy >= 70 ? "text-yellow-500" : "text-green-500"}`}>{occupancy}%</p>
@@ -86,6 +116,7 @@ export default function BedsPage() {
               style={{ width: `${occupancy}%` }} />
           </div>
           <p className="text-[10px] text-gray-400 mt-1">{counts.occupied} occupied / {counts.total} total beds</p>
+          </div>
         </div>
       </div>
 
@@ -178,6 +209,55 @@ export default function BedsPage() {
             <div className="flex gap-3">
               <button onClick={() => setDischargeId(null)} className="btn-secondary flex-1">Cancel</button>
               <button onClick={() => discharge(dischargeId)} className="flex-1 text-sm font-semibold py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white active:scale-95 transition-all">Confirm Discharge</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Bed Prediction Modal */}
+      {showPrediction && (
+        <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="bg-white/98 dark:bg-gray-900/98 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-2xl animate-pop-in flex flex-col" style={{ maxHeight: '90vh' }}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <Sparkles size={20} className="text-white" />
+                <div>
+                  <p className="text-white font-bold">AI Bed Availability Forecast</p>
+                  <p className="text-indigo-200 text-xs">{counts.occupied}/{counts.total} beds occupied · Next 24-48 hours prediction</p>
+                </div>
+              </div>
+              <button onClick={() => setShowPrediction(false)} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                <X size={16} className="text-white" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto flex-1 p-6">
+              {predicting ? (
+                <div className="space-y-3 animate-pulse">
+                  {[90, 70, 100, 60, 85, 75, 95, 65].map((w, i) => (
+                    <div key={i} className="h-3 bg-indigo-100 dark:bg-indigo-900/30 rounded" style={{ width: `${w}%` }} />
+                  ))}
+                  <p className="text-center text-sm text-indigo-400 mt-4 font-medium">✨ Analyzing bed occupancy patterns...</p>
+                </div>
+              ) : (
+                <div
+                  className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 [&>h3]:text-indigo-800 [&>h3]:dark:text-indigo-300 [&>h3]:font-bold [&>h3]:text-sm [&>h3]:uppercase [&>h3]:tracking-wider [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:pb-1 [&>h3]:border-b [&>h3]:border-indigo-100 [&>h3]:dark:border-indigo-800/30 [&>p]:text-sm [&>p]:leading-relaxed [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1 [&>ul]:text-sm"
+                  dangerouslySetInnerHTML={{ __html: prediction || '' }}
+                />
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+              <button onClick={() => setShowPrediction(false)} className="btn-secondary flex-1">Close</button>
+              <button
+                onClick={() => { setPrediction(null); setTimeout(() => predictBeds(), 100); }}
+                className="flex items-center justify-center gap-2 flex-1 text-sm font-semibold py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 active:scale-95 transition-all"
+              >
+                <Sparkles size={14} /> Refresh Forecast
+              </button>
             </div>
           </div>
         </div>

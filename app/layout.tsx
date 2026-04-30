@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import SidebarWrapper from "./components/SidebarWrapper";
 import ThemeProvider from "./components/ThemeProvider";
+import AIChatWidget from "./components/AIChatWidget";
 
 export const metadata: Metadata = {
   title: "Healthcare Analytics",
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <SidebarWrapper>{children}</SidebarWrapper>
+          <AIChatWidget />
         </ThemeProvider>
       </body>
     </html>
