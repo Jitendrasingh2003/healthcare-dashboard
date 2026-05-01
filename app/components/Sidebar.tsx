@@ -25,6 +25,7 @@ const adminNavItems = [
     { label: "Billing", href: "/billing", icon: Receipt },
     { label: "Operations", href: "/operations", icon: Activity },
     { label: "AI Triage", href: "/triage", icon: Sparkles },
+    { label: "Symptom Mapper", href: "/ai/symptom-mapper", icon: Sparkles },
 ];
 
 // Doctor nav — patient care focused
@@ -36,6 +37,7 @@ const doctorNavItems = [
     { label: "Prescriptions", href: "/prescriptions", icon: Pill },
     { label: "Medical Records", href: "/medical-records", icon: FileText },
     { label: "AI Triage", href: "/triage", icon: Sparkles },
+    { label: "Symptom Mapper", href: "/ai/symptom-mapper", icon: Sparkles },
 ];
 
 // Nurse nav — ward & care focused
