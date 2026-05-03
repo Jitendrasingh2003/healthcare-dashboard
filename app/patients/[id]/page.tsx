@@ -1,11 +1,14 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, Mail, MapPin, FileText, User, Printer, Download, FlaskConical, Plus, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, FileText, User, Printer, Download, FlaskConical, Plus, Sparkles, X, Check } from "lucide-react";
 import { useRole, rolePermissions } from "../../hooks/useRole";
 import { printPatientCard } from "../../utils/printUtils";
 import EmptyState from "../../components/EmptyState";
 import { SkeletonText } from "../../components/SkeletonCard";
+import { useParams } from "next/navigation";
+import AIRiskAlertBanner from "../../components/AIRiskAlertBanner";
+
 
 const statusStyle: Record<string, string> = {
     Stable: "bg-green-100/80 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/50",
@@ -14,8 +17,9 @@ const statusStyle: Record<string, string> = {
     Discharged: "bg-blue-100/80 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50",
 };
 
-export default function PatientDetail({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+export default function PatientDetail() {
+    const params = useParams();
+    const id = params?.id as string;
     const [patient, setPatient] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
@@ -29,6 +33,33 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
     const [showDischargeSummary, setShowDischargeSummary] = useState(false);
     const [dischargeSummary, setDischargeSummary] = useState<string | null>(null);
     const [generatingSummary, setGeneratingSummary] = useState(false);
+    const [showCoPilot, setShowCoPilot] = useState(false);
+    const [coPilotSuggestions, setCoPilotSuggestions] = useState<string | null>(null);
+    const [generatingCoPilot, setGeneratingCoPilot] = useState(false);
+    const [showEdit, setShowEdit] = useState(false);
+    const [editForm, setEditForm] = useState<any>({});
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    const generateCoPilotSuggestions = async () => {
+        setShowCoPilot(true);
+        if (coPilotSuggestions) return;
+        setGeneratingCoPilot(true);
+        try {
+            const res = await fetch('/api/ai/co-pilot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ patient, reports }),
+            });
+            const data = await res.json();
+            if (res.ok) setCoPilotSuggestions(data.suggestions);
+            else setCoPilotSuggestions(`<p class="text-red-500">Error: ${data.error}</p>`);
+        } catch (e: any) {
+            setCoPilotSuggestions(`<p class="text-red-500">Failed to connect: ${e.message}</p>`);
+        } finally {
+            setGeneratingCoPilot(false);
+        }
+    };
 
     const generateDischargeSummary = async () => {
         setShowDischargeSummary(true);
@@ -50,7 +81,26 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
         }
     };
 
-    useEffect(() => { fetchPatient(); }, [id]);
+    useEffect(() => { if (id) fetchPatient(); }, [id]);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/patients/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(editForm),
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setPatient(updated);
+                setShowEdit(false);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 3000);
+            }
+        } catch (e) { console.error(e); }
+        setSaving(false);
+    };
 
     const fetchPatient = async () => {
         setLoading(true);
@@ -58,6 +108,12 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
         if (res.status === 404) { setNotFound(true); setLoading(false); return; }
         const data = await res.json();
         setPatient(data);
+        setEditForm({
+            name: data.name, age: data.age, gender: data.gender, blood: data.blood,
+            phone: data.phone, email: data.email || "", address: data.address || "",
+            dept: data.dept, doctor: data.doctor, status: data.status,
+            bedNo: data.bedNo || "", diagnosis: data.diagnosis || "", notes: data.notes || "",
+        });
         setLoading(false);
         fetchReports();
     };
@@ -106,6 +162,12 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
 
     return (
         <div className="min-h-screen p-6 animate-fade-in">
+            {/* Success Toast */}
+            {saved && (
+                <div className="fixed top-5 right-5 z-50 flex items-center gap-2 bg-green-500 text-white px-4 py-3 rounded-2xl shadow-xl animate-pop-in">
+                    <Check size={16} /> Patient updated successfully!
+                </div>
+            )}
 
             {/* Header */}
             <div className="flex items-center justify-between mb-8 animate-fade-in-up">
@@ -123,14 +185,31 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
                     <span className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 uppercase tracking-wider">
                         {role}
                     </span>
-                    {/* AI Discharge Summary */}
+                    {/* Edit Profile */}
                     {(role === "Admin" || role === "Doctor") && (
                         <button
-                            onClick={generateDischargeSummary}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-indigo-500/30"
+                            onClick={() => setShowEdit(true)}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 active:scale-95 transition-all shadow-lg shadow-teal-500/30"
                         >
-                            <Sparkles size={14} /> AI Summary
+                            ✏️ Edit
                         </button>
+                    )}
+                    {/* AI Discharge Summary */}
+                    {(role === "Admin" || role === "Doctor") && (
+                        <>
+                            <button
+                                onClick={generateCoPilotSuggestions}
+                                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-teal-500/30"
+                            >
+                                <Sparkles size={14} /> AI Co-pilot
+                            </button>
+                            <button
+                                onClick={generateDischargeSummary}
+                                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-indigo-500/30"
+                            >
+                                <Sparkles size={14} /> AI Summary
+                            </button>
+                        </>
                     )}
                     {/* Print Button */}
                     <button
@@ -151,6 +230,9 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
                     </span>
                 </div>
             </div>
+
+            {/* AI Risk Alert Banner */}
+            {patient && <AIRiskAlertBanner patient={patient} reports={reports} />}
 
             {/* Profile Card */}
             <div className="glass-card p-6 mb-6 animate-fade-in-up stagger-1">
@@ -216,7 +298,7 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
                     {/* Only Admin and Doctor can update notes or discharge */}
                     {(role === "Admin" || role === "Doctor") ? (
                         <div className="flex gap-3">
-                            <button className="btn-primary flex-1">Update Notes</button>
+                            <button onClick={() => setShowEdit(true)} className="btn-primary flex-1">Update Notes</button>
                             {perms.canDischargePatient && <button className="btn-secondary flex-1">Discharge</button>}
                         </div>
                     ) : (
@@ -352,6 +434,122 @@ export default function PatientDetail({ params }: { params: Promise<{ id: string
                                 className="flex items-center justify-center gap-2 flex-1 text-sm font-semibold py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90 active:scale-95 transition-all"
                             >
                                 <Sparkles size={14} /> Regenerate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+                
+            {/* AI Co-pilot Modal */}
+            {showCoPilot && (
+                <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+                    <div className="bg-white/98 dark:bg-gray-900/98 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-2xl animate-pop-in flex flex-col" style={{ maxHeight: '90vh' }}>
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-teal-600 to-blue-600 px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <Sparkles size={20} className="text-white" />
+                                <div>
+                                    <p className="text-white font-bold">AI Doctor's Co-pilot</p>
+                                    <p className="text-teal-100 text-xs">Clinical Decision Support · {patient.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowCoPilot(false)} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                                <X size={16} className="text-white" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="overflow-y-auto flex-1 p-6">
+                            {generatingCoPilot ? (
+                                <div className="space-y-4 animate-pulse">
+                                    <div className="h-4 bg-teal-100 dark:bg-teal-900/30 rounded w-1/3 mb-4" />
+                                    {[100, 90, 80, 100, 70, 95].map((w, i) => (
+                                        <div key={i} className={`h-3 bg-gray-100 dark:bg-gray-800 rounded`} style={{ width: `${w}%` }} />
+                                    ))}
+                                    <div className="h-4 bg-blue-100 dark:bg-blue-900/30 rounded w-1/4 mt-6 mb-4" />
+                                    {[85, 100, 60, 90].map((w, i) => (
+                                        <div key={i} className={`h-3 bg-gray-100 dark:bg-gray-800 rounded`} style={{ width: `${w}%` }} />
+                                    ))}
+                                    <p className="text-center text-sm text-teal-500 mt-8 font-medium">🔬 Analyzing medical history & lab results...</p>
+                                </div>
+                            ) : (
+                                <div
+                                    className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 [&>h3]:text-teal-700 [&>h3]:dark:text-teal-400 [&>h3]:font-bold [&>h3]:text-sm [&>h3]:uppercase [&>h3]:tracking-wider [&>h3]:mt-6 [&>h3]:mb-3 [&>h3]:pb-1 [&>h3]:border-b [&>h3]:border-teal-100 [&>h3]:dark:border-teal-800/30 [&>p]:text-sm [&>p]:leading-relaxed [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1.5 [&>ul]:text-sm [&>strong]:text-gray-800 [&>strong]:dark:text-white"
+                                    dangerouslySetInnerHTML={{ __html: coPilotSuggestions || '' }}
+                                />
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+                            <button onClick={() => setShowCoPilot(false)} className="btn-secondary flex-1">Close Co-pilot</button>
+                            <button
+                                onClick={() => {
+                                    setCoPilotSuggestions(null);
+                                    setGeneratingCoPilot(false);
+                                    setTimeout(() => generateCoPilotSuggestions(), 100);
+                                }}
+                                className="flex items-center justify-center gap-2 flex-1 text-sm font-semibold py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-blue-600 text-white hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-teal-500/20"
+                            >
+                                <Sparkles size={14} /> Refresh Analysis
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Edit Patient Modal ── */}
+            {showEdit && (
+                <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+                    <div className="bg-white/98 dark:bg-gray-900/98 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-lg animate-pop-in flex flex-col" style={{ maxHeight: "90vh" }}>
+                        <div className="bg-gradient-to-r from-teal-600 to-blue-600 px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0">
+                            <div>
+                                <p className="text-white font-bold">Edit Patient Profile</p>
+                                <p className="text-teal-100 text-xs">{patient.name}</p>
+                            </div>
+                            <button onClick={() => setShowEdit(false)} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                                <X size={16} className="text-white" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                            {[
+                                { label: "Full Name", key: "name", ph: "Patient name" },
+                                { label: "Age", key: "age", ph: "Age" },
+                                { label: "Phone", key: "phone", ph: "Phone number" },
+                                { label: "Email", key: "email", ph: "Email address" },
+                                { label: "Address", key: "address", ph: "Address" },
+                                { label: "Doctor", key: "doctor", ph: "Assigned doctor" },
+                                { label: "Bed No.", key: "bedNo", ph: "Bed number" },
+                                { label: "Diagnosis", key: "diagnosis", ph: "Diagnosis" },
+                                { label: "Notes", key: "notes", ph: "Doctor notes" },
+                            ].map(f => (
+                                <div key={f.key}>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">{f.label}</label>
+                                    <input
+                                        placeholder={f.ph}
+                                        value={editForm[f.key] || ""}
+                                        onChange={e => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all"
+                                    />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Status</label>
+                                <select value={editForm.status || ""} onChange={e => setEditForm({ ...editForm, status: e.target.value })} className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500/50 transition-all appearance-none">
+                                    {["Stable", "Critical", "Observation", "Discharged"].map(s => <option key={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Gender</label>
+                                <select value={editForm.gender || ""} onChange={e => setEditForm({ ...editForm, gender: e.target.value })} className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500/50 transition-all appearance-none">
+                                    {["Male", "Female", "Other"].map(g => <option key={g}>{g}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="px-6 pb-6 flex gap-3 flex-shrink-0">
+                            <button onClick={() => setShowEdit(false)} className="btn-secondary flex-1">Cancel</button>
+                            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-60">
+                                {saving ? "Saving..." : "Save Changes"}
                             </button>
                         </div>
                     </div>

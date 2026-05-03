@@ -10,7 +10,7 @@ import {
     FileText, Pill, BedDouble, ClipboardList, Syringe, Sparkles
 } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
-import NotificationBell from "./NotificationBell";
+import AIRiskNotificationBell from "./AIRiskNotificationBell";
 
 import { useRole } from "../hooks/useRole";
 
@@ -92,7 +92,7 @@ export default function Sidebar() {
                         <p className="text-[10px] uppercase tracking-wider text-gray-400">City General</p>
                     </div>
                 </div>
-                <NotificationBell />
+                <AIRiskNotificationBell />
             </div>
 
             {/* Global Search */}

@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Users, Stethoscope, Shield, FlaskConical } from "lucide-react";
+import Link from "next/link";
 
 const roleColors: Record<string, string> = {
     Nurse: "from-pink-400 to-pink-600",
@@ -18,32 +19,57 @@ const roleIcons: Record<string, any> = {
     Receptionist: Users,
 };
 
-const initialStaff = [
-    { id: 1, name: "Kavita Sharma", role: "Nurse", dept: "Cardiology", shift: "Morning", phone: "98765-11111", status: "Active" },
-    { id: 2, name: "Mohan Lal", role: "Admin", dept: "Administration", shift: "Day", phone: "98765-22222", status: "Active" },
-    { id: 3, name: "Neha Gupta", role: "Lab Technician", dept: "Pathology", shift: "Morning", phone: "98765-33333", status: "Active" },
-    { id: 4, name: "Suresh Kumar", role: "Pharmacist", dept: "Pharmacy", shift: "Evening", phone: "98765-44444", status: "On Leave" },
-    { id: 5, name: "Anita Verma", role: "Nurse", dept: "Neurology", shift: "Night", phone: "98765-55555", status: "Active" },
-    { id: 6, name: "Ramesh Tiwari", role: "Receptionist", dept: "OPD", shift: "Morning", phone: "98765-66666", status: "Active" },
-];
-
 export default function StaffPage() {
-    const [staff, setStaff] = useState(initialStaff);
+    const [staff, setStaff] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [roleFilter, setRoleFilter] = useState("All");
     const [form, setForm] = useState({ name: "", role: "Nurse", dept: "", shift: "Morning", phone: "" });
 
     const roles = ["All", "Nurse", "Admin", "Lab Technician", "Pharmacist", "Receptionist"];
-    const filtered = roleFilter === "All" ? staff : staff.filter(s => s.role === roleFilter);
 
-    const handleAdd = () => {
-        if (!form.name || !form.dept) return;
-        setStaff([{ id: Date.now(), ...form, status: "Active" }, ...staff]);
-        setShowForm(false);
-        setForm({ name: "", role: "Nurse", dept: "", shift: "Morning", phone: "" });
+    useEffect(() => {
+        fetchStaff();
+    }, []);
+
+    const fetchStaff = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch("/api/staff");
+            const data = await res.json();
+            if (Array.isArray(data)) setStaff(data);
+        } catch (error) {
+            console.error("Failed to fetch staff:", error);
+        }
+        setLoading(false);
     };
 
-    const counts: Record<string, number> = { Total: staff.length, Active: staff.filter(s => s.status === "Active").length, "On Leave": staff.filter(s => s.status === "On Leave").length };
+    const filtered = roleFilter === "All" ? staff : staff.filter(s => s.role === roleFilter);
+
+    const handleAdd = async () => {
+        if (!form.name || !form.dept) return;
+        try {
+            const res = await fetch("/api/staff", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(form),
+            });
+            if (res.ok) {
+                const newStaff = await res.json();
+                setStaff([newStaff, ...staff]);
+                setShowForm(false);
+                setForm({ name: "", role: "Nurse", dept: "", shift: "Morning", phone: "" });
+            }
+        } catch (error) {
+            console.error("Failed to add staff:", error);
+        }
+    };
+
+    const counts: Record<string, number> = { 
+        Total: staff.length, 
+        Active: staff.filter(s => s.status === "Active").length, 
+        "On Leave": staff.filter(s => s.status === "On Leave").length 
+    };
 
     return (
         <div className="min-h-screen p-6 animate-fade-in">
@@ -79,32 +105,43 @@ export default function StaffPage() {
             </div>
 
             {/* Staff Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up stagger-3">
-                {filtered.map((s, i) => {
-                    const Icon = roleIcons[s.role] || Users;
-                    const grad = roleColors[s.role] || "from-gray-400 to-gray-600";
-                    return (
-                        <div key={s.id} className={`glass-card p-5 group animate-fade-in-up stagger-${(i % 5) + 1}`}>
-                            <div className="flex items-start gap-4">
-                                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${grad} text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
-                                    {s.name.split(" ").map(n => n[0]).join("")}
+            {loading ? (
+                <div className="flex items-center justify-center h-64">
+                    <div className="w-10 h-10 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin shadow-lg" />
+                </div>
+            ) : filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 glass-card p-10 text-center">
+                    <Users size={48} className="text-gray-300 mb-4" />
+                    <p className="text-gray-500 font-medium">No staff members found.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up stagger-3">
+                    {filtered.map((s, i) => {
+                        const Icon = roleIcons[s.role] || Users;
+                        const grad = roleColors[s.role] || "from-gray-400 to-gray-600";
+                        return (
+                            <Link href={`/staff/${s.id}`} key={s.id} className={`glass-card p-5 group animate-fade-in-up stagger-${(i % 5) + 1} hover:border-teal-500/50 transition-all active:scale-[0.98]`}>
+                                <div className="flex items-start gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${grad} text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
+                                        {s.name.split(" ").map((n: string) => n[0]).join("")}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors truncate">{s.name}</p>
+                                        <p className="text-xs text-gray-500 mt-0.5">{s.role} • {s.dept}</p>
+                                    </div>
+                                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider flex-shrink-0 ${s.status === "Active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"}`}>
+                                        {s.status}
+                                    </span>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors truncate">{s.name}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">{s.role} • {s.dept}</p>
+                                <div className="mt-4 grid grid-cols-2 gap-2 bg-white/50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700/50">
+                                    <div><span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Shift</span><p className="text-xs font-bold text-gray-700 dark:text-gray-300 mt-0.5">{s.shift}</p></div>
+                                    <div><span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Phone</span><p className="text-xs font-bold text-gray-700 dark:text-gray-300 mt-0.5">{s.phone}</p></div>
                                 </div>
-                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider flex-shrink-0 ${s.status === "Active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"}`}>
-                                    {s.status}
-                                </span>
-                            </div>
-                            <div className="mt-4 grid grid-cols-2 gap-2 bg-white/50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700/50">
-                                <div><span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Shift</span><p className="text-xs font-bold text-gray-700 dark:text-gray-300 mt-0.5">{s.shift}</p></div>
-                                <div><span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Phone</span><p className="text-xs font-bold text-gray-700 dark:text-gray-300 mt-0.5">{s.phone}</p></div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Add Modal */}
             {showForm && (
