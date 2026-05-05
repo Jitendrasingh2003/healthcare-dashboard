@@ -77,3 +77,17 @@ model LabReport {
   notes       String?
   createdAt   DateTime @default(now())
 }
+
+model FollowUp {
+  id           String   @id @default(cuid())
+  patientId    String
+  patientName  String
+  patientPhone String
+  patientEmail String?
+  doctorId     String?
+  doctorName   String?
+  followUpDate DateTime
+  status       String   @default("Pending") // Pending, Notified, Completed
+  notes        String?
+  createdAt    DateTime @default(now())
+}

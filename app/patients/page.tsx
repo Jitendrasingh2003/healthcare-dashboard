@@ -22,9 +22,23 @@ export default function PatientsPage() {
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({
         name: "", age: "", gender: "Male", blood: "B+",
-        phone: "", dept: "Cardiology", doctor: "Dr. Mehta", status: "Stable",
+        phone: "", email: "", dept: "Cardiology", doctor: "Dr. Mehta", status: "Stable",
     });
     const [saving, setSaving] = useState(false);
+    const [triggeringCron, setTriggeringCron] = useState(false);
+
+    const handleTriggerCron = async () => {
+        setTriggeringCron(true);
+        try {
+            const res = await fetch("/api/cron/send-reminders");
+            const data = await res.json();
+            alert(data.message || data.error);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to trigger cron.");
+        }
+        setTriggeringCron(false);
+    };
 
     useEffect(() => {
         fetchPatients();
@@ -71,12 +85,22 @@ export default function PatientsPage() {
                         <p className="text-sm text-gray-500 mt-1">{filtered.length} patients found</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setShowForm(true)}
-                    className="btn-primary"
-                >
-                    <Plus size={16} /> Admit Patient
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleTriggerCron}
+                        disabled={triggeringCron}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-60"
+                        title="Simulate daily cron job to send reminders"
+                    >
+                        {triggeringCron ? "Sending..." : "🔔 Send Reminders (Cron)"}
+                    </button>
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="btn-primary"
+                    >
+                        <Plus size={16} /> Admit Patient
+                    </button>
+                </div>
             </div>
 
             {/* Search + Filters */}
@@ -170,6 +194,10 @@ export default function PatientsPage() {
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Phone</label>
                                 <input type="text" placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Email</label>
+                                <input type="email" placeholder="Email address (optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" />
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Department</label>

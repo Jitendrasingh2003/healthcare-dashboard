@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, Mail, MapPin, FileText, User, Printer, Download, FlaskConical, Plus, Sparkles, X, Check } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, FileText, User, Printer, Download, FlaskConical, Plus, Sparkles, X, Check, Calendar, Clock } from "lucide-react";
 import { useRole, rolePermissions } from "../../hooks/useRole";
 import { printPatientCard } from "../../utils/printUtils";
 import EmptyState from "../../components/EmptyState";
@@ -40,6 +40,12 @@ export default function PatientDetail() {
     const [editForm, setEditForm] = useState<any>({});
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+
+    const [followUps, setFollowUps] = useState<any[]>([]);
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+    const [followUpDays, setFollowUpDays] = useState(10);
+    const [followUpNotes, setFollowUpNotes] = useState("");
+    const [schedulingFollowUp, setSchedulingFollowUp] = useState(false);
 
     const generateCoPilotSuggestions = async () => {
         setShowCoPilot(true);
@@ -81,6 +87,68 @@ export default function PatientDetail() {
         }
     };
 
+    const fetchFollowUps = async (patientId: string) => {
+        try {
+            const res = await fetch(`/api/follow-ups?patientId=${patientId}`);
+            const data = await res.json();
+            if (Array.isArray(data)) setFollowUps(data);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleScheduleFollowUp = async () => {
+        setSchedulingFollowUp(true);
+        try {
+            const date = new Date();
+            date.setDate(date.getDate() + Number(followUpDays));
+            
+            const payload = {
+                patientId: patient.id,
+                patientName: patient.name,
+                patientPhone: patient.phone || "Not Provided",
+                patientEmail: patient.email || null,
+                doctorId: patient.doctor,
+                doctorName: patient.doctor,
+                followUpDate: date.toISOString(),
+                notes: followUpNotes
+            };
+
+            const res = await fetch("/api/follow-ups", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                // Specific requirement: Update patient's notes with the follow-up mention
+                const noteAddition = `\n[Follow-up reminder scheduled for ${date.toLocaleDateString("en-IN")}: ${followUpNotes}]`;
+                const updatedNotes = patient.notes ? patient.notes + noteAddition : noteAddition.trim();
+                
+                await fetch(`/api/patients/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ notes: updatedNotes }),
+                });
+                
+                setPatient({ ...patient, notes: updatedNotes });
+
+                setShowFollowUpModal(false);
+                setFollowUpNotes("");
+                setSaved(true);
+                setTimeout(() => setSaved(false), 3000);
+                fetchFollowUps(patient.id);
+            } else {
+                alert("Failed to schedule: " + (data.error || "Unknown error"));
+            }
+        } catch (e: any) {
+            console.error(e);
+            alert("An error occurred: " + e.message);
+        }
+        setSchedulingFollowUp(false);
+    };
+
     useEffect(() => { if (id) fetchPatient(); }, [id]);
 
     const handleSave = async () => {
@@ -104,18 +172,33 @@ export default function PatientDetail() {
 
     const fetchPatient = async () => {
         setLoading(true);
-        const res = await fetch(`/api/patients/${id}`);
-        if (res.status === 404) { setNotFound(true); setLoading(false); return; }
-        const data = await res.json();
-        setPatient(data);
-        setEditForm({
-            name: data.name, age: data.age, gender: data.gender, blood: data.blood,
-            phone: data.phone, email: data.email || "", address: data.address || "",
-            dept: data.dept, doctor: data.doctor, status: data.status,
-            bedNo: data.bedNo || "", diagnosis: data.diagnosis || "", notes: data.notes || "",
-        });
-        setLoading(false);
-        fetchReports();
+        try {
+            const res = await fetch(`/api/patients/${id}`);
+            if (res.status === 404) { setNotFound(true); setLoading(false); return; }
+            const data = await res.json();
+            
+            if (!res.ok) {
+                console.error("Failed to fetch patient data:", data);
+                alert("Failed to load patient: " + (data.error || "Unknown error"));
+                setLoading(false);
+                return;
+            }
+
+            setPatient(data);
+            setEditForm({
+                name: data.name, age: data.age, gender: data.gender, blood: data.blood,
+                phone: data.phone, email: data.email || "", address: data.address || "",
+                dept: data.dept, doctor: data.doctor, status: data.status,
+                bedNo: data.bedNo || "", diagnosis: data.diagnosis || "", notes: data.notes || "",
+            });
+            fetchReports();
+            fetchFollowUps(id);
+        } catch (e: any) {
+            console.error("fetchPatient error:", e);
+            alert("Error loading patient: " + e.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const fetchReports = async () => {
@@ -192,6 +275,15 @@ export default function PatientDetail() {
                             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 active:scale-95 transition-all shadow-lg shadow-teal-500/30"
                         >
                             ✏️ Edit
+                        </button>
+                    )}
+                    {/* Follow-up: Only Doctor can schedule */}
+                    {role === "Doctor" && (
+                        <button
+                            onClick={() => setShowFollowUpModal(true)}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-orange-500/30"
+                        >
+                            <Calendar size={14} /> Follow-up
                         </button>
                     )}
                     {/* AI Discharge Summary */}
@@ -387,6 +479,36 @@ export default function PatientDetail() {
                 )}
             </div>
 
+            {/* ── Follow-Up Reminders Section ── */}
+            <div className="mt-6 glass-card p-6 animate-fade-in-up stagger-6">
+                <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-5">
+                    <Calendar size={18} className="text-orange-500" /> Follow-Up Reminders
+                </h3>
+                {followUps.length === 0 ? (
+                    <EmptyState icon="calendar" title="No follow-ups scheduled" subtitle="Schedule a follow-up appointment for this patient" />
+                ) : (
+                    <div className="space-y-3">
+                        {followUps.map(f => (
+                            <div key={f.id} className="flex items-start gap-4 p-4 bg-white/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 rounded-xl hover:bg-white/70 dark:hover:bg-gray-800/70 transition-colors">
+                                <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0">
+                                    <Clock size={16} className="text-orange-500" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="font-bold text-gray-800 dark:text-white text-sm">Follow-up with {f.doctorName}</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${f.status === 'Pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                            {f.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Date: <span className="font-semibold">{new Date(f.followUpDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></p>
+                                    {f.notes && <p className="text-xs text-gray-500 mt-0.5 italic">"{f.notes}"</p>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* AI Discharge Summary Modal */}
             {showDischargeSummary && (
                 <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
@@ -550,6 +672,49 @@ export default function PatientDetail() {
                             <button onClick={() => setShowEdit(false)} className="btn-secondary flex-1">Cancel</button>
                             <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 disabled:opacity-60">
                                 {saving ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ── Schedule Follow-up Modal ── */}
+            {showFollowUpModal && (
+                <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+                    <div className="bg-white/98 dark:bg-gray-900/98 backdrop-blur-xl border border-white/20 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-lg animate-pop-in flex flex-col">
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0">
+                            <div>
+                                <p className="text-white font-bold">Schedule Follow-up Reminder</p>
+                                <p className="text-orange-100 text-xs">{patient.name}</p>
+                            </div>
+                            <button onClick={() => setShowFollowUpModal(false)} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                                <X size={16} className="text-white" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Follow-up in (Days)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={followUpDays}
+                                    onChange={e => setFollowUpDays(Number(e.target.value))}
+                                    className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Notes / Instructions</label>
+                                <textarea
+                                    placeholder="e.g., Bring latest blood report"
+                                    value={followUpNotes}
+                                    onChange={e => setFollowUpNotes(e.target.value)}
+                                    className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all min-h-[80px]"
+                                />
+                            </div>
+                        </div>
+                        <div className="px-6 pb-6 flex gap-3 flex-shrink-0">
+                            <button onClick={() => setShowFollowUpModal(false)} className="btn-secondary flex-1">Cancel</button>
+                            <button onClick={handleScheduleFollowUp} disabled={schedulingFollowUp} className="flex items-center justify-center gap-2 flex-1 text-sm font-semibold py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-orange-500/20 disabled:opacity-60">
+                                {schedulingFollowUp ? "Scheduling..." : "Schedule Reminder"}
                             </button>
                         </div>
                     </div>
