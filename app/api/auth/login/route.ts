@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key_for_dev_only";
 
 export async function POST(req: Request) {
@@ -41,6 +41,21 @@ export async function POST(req: Request) {
       path: "/",
     });
 
+    // Log the login activity in UserActivity table
+    const headersList = await headers();
+    const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "Unknown";
+    const userAgent = headersList.get("user-agent") || "Unknown";
+
+    await prisma.userActivity.create({
+      data: {
+        userId: user.id,
+        action: "LOGIN",
+        role: user.role,
+        ipAddress,
+        userAgent,
+      },
+    });
+
     return NextResponse.json(
       { message: "Login successful", user: { id: user.id, name: user.name, email: user.email, role: user.role } },
       { status: 200 }
@@ -50,3 +65,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

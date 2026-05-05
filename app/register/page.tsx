@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Heart, Eye, EyeOff, Lock, Mail, User, Shield, Stethoscope, Activity } from "lucide-react";
+import { Heart, Eye, EyeOff, Lock, Mail, User, Stethoscope, Activity, Phone, Building2 } from "lucide-react";
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -11,12 +11,20 @@ export default function RegisterPage() {
     const [role, setRole] = useState("Doctor");
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [department, setDepartment] = useState("");
     const [password, setPassword] = useState("");
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const roleIcons: Record<string, any> = { Doctor: Stethoscope, Nurse: Activity };
+
+    const departments = [
+        "Cardiology", "Neurology", "Orthopedics", "Pediatrics",
+        "Oncology", "Radiology", "Emergency", "General Surgery",
+        "Gynecology", "ICU", "General"
+    ];
 
     useEffect(() => {
         const queryRole = searchParams.get("role");
@@ -27,7 +35,7 @@ export default function RegisterPage() {
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
-            setError("All fields are required");
+            setError("Name, email and password are required");
             return;
         }
 
@@ -38,7 +46,7 @@ export default function RegisterPage() {
             const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password, role }),
+                body: JSON.stringify({ name, email, password, role, phone, department }),
             });
 
             const data = await res.json();
@@ -55,6 +63,7 @@ export default function RegisterPage() {
                     const loginData = await loginRes.json();
                     localStorage.setItem("loggedIn", "true");
                     localStorage.setItem("role", loginData.user.role);
+                    localStorage.setItem("userName", loginData.user.name);
                     
                     // Redirect based on role
                     if (loginData.user.role === "Doctor") {
@@ -76,6 +85,7 @@ export default function RegisterPage() {
             setLoading(false);
         }
     };
+
 
     return (
         <div className="min-h-screen flex" style={{ background: "linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)" }}>
@@ -143,7 +153,7 @@ export default function RegisterPage() {
                         <label className="text-xs font-bold text-gray-600 mb-2 block uppercase tracking-wider">Full Name</label>
                         <div className="flex items-center gap-3 bg-white border-2 border-gray-100 rounded-xl px-4 py-3 focus-within:border-teal-400 focus-within:shadow-lg focus-within:shadow-teal-500/10 transition-all">
                             <User size={16} className="text-gray-400" />
-                            <input type="text" placeholder="Dr. John Doe" value={name}
+                            <input type="text" placeholder={role === "Doctor" ? "Dr. John Doe" : "Nurse Jane Smith"} value={name}
                                 onChange={e => setName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleRegister()}
                                 className="text-sm outline-none w-full text-gray-700 bg-transparent" />
                         </div>
@@ -160,6 +170,30 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
+                    {/* Phone + Department Row */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label className="text-xs font-bold text-gray-600 mb-2 block uppercase tracking-wider">Phone</label>
+                            <div className="flex items-center gap-2 bg-white border-2 border-gray-100 rounded-xl px-3 py-3 focus-within:border-teal-400 transition-all">
+                                <Phone size={14} className="text-gray-400 shrink-0" />
+                                <input type="tel" placeholder="9876543210" value={phone}
+                                    onChange={e => setPhone(e.target.value)}
+                                    className="text-sm outline-none w-full text-gray-700 bg-transparent" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-600 mb-2 block uppercase tracking-wider">Department</label>
+                            <div className="flex items-center gap-2 bg-white border-2 border-gray-100 rounded-xl px-3 py-3 focus-within:border-teal-400 transition-all">
+                                <Building2 size={14} className="text-gray-400 shrink-0" />
+                                <select value={department} onChange={e => setDepartment(e.target.value)}
+                                    className="text-sm outline-none w-full text-gray-700 bg-transparent">
+                                    <option value="">Select...</option>
+                                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Password */}
                     <div className="mb-6">
                         <label className="text-xs font-bold text-gray-600 mb-2 block uppercase tracking-wider">Password</label>
@@ -173,6 +207,7 @@ export default function RegisterPage() {
                             </button>
                         </div>
                     </div>
+
 
                     {/* Error */}
                     {error && (

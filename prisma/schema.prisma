@@ -32,36 +32,41 @@ model Doctor {
   id        String   @id @default(cuid())
   name      String
   dept      String
-  exp       String
+  exp       String   @default("0 yrs")
   phone     String
   email     String
   status    String   @default("On Duty")
-  shift     String
-  rating    Float
+  shift     String   @default("Morning")
+  rating    Float    @default(4.5)
   patients  Int      @default(0)
   education String?
   address   String?
+  userId    String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("Admin")
-  createdAt DateTime @default(now())
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
+  password     String
+  role         String         @default("Admin")
+  phone        String?
+  department   String?
+  createdAt    DateTime       @default(now())
+  activities   UserActivity[]
 }
 
 model Staff {
   id        String   @id @default(cuid())
   name      String
   role      String
-  dept      String
-  shift     String
-  phone     String
+  dept      String   @default("General")
+  shift     String   @default("Morning")
+  phone     String   @default("N/A")
   status    String   @default("Active")
+  userId    String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -87,7 +92,38 @@ model FollowUp {
   doctorId     String?
   doctorName   String?
   followUpDate DateTime
-  status       String   @default("Pending") // Pending, Notified, Completed
+  status       String   @default("Pending")
   notes        String?
   createdAt    DateTime @default(now())
+}
+
+// Tracks every login & registration event for audit
+model UserActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // "REGISTER" | "LOGIN" | "LOGOUT"
+  role      String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model Invoice {
+  id           String   @id @default(cuid())
+  patientId    String
+  patientName  String
+  totalAmount  Float
+  breakdown    String   // JSON string of room charges, doctor fees, etc.
+  status       String   @default("Unpaid") // Unpaid, Paid
+  issuedDate   DateTime @default(now())
+}
+
+model DischargeSummary {
+  id              String   @id @default(cuid())
+  patientId       String
+  patientName     String
+  doctorId        String?
+  aiGeneratedText String
+  dischargeDate   DateTime @default(now())
 }

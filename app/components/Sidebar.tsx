@@ -7,7 +7,7 @@ import {
     LayoutDashboard, Users, Stethoscope, Activity,
     Settings, LogOut, Heart, Sun, Moon, Building2,
     Calendar, UserCheck, Receipt, FlaskConical,
-    FileText, Pill, BedDouble, ClipboardList, Syringe, Sparkles
+    FileText, Pill, BedDouble, ClipboardList, Syringe, Sparkles, ShieldCheck, BarChart2
 } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
 import AIRiskNotificationBell from "./AIRiskNotificationBell";
@@ -22,7 +22,8 @@ const adminNavItems = [
     { label: "Patients", href: "/patients", icon: Users },
     { label: "Doctors", href: "/doctors", icon: Stethoscope },
     { label: "Staff", href: "/staff", icon: UserCheck },
-    { label: "Billing", href: "/billing", icon: Receipt },
+    { label: "Staff Registry", href: "/staff-registry", icon: ShieldCheck },
+    { label: "Billing", href: "/billing-dashboard", icon: BarChart2 },
     { label: "Operations", href: "/operations", icon: Activity },
     { label: "AI Triage", href: "/triage", icon: Sparkles },
     { label: "Symptom Mapper", href: "/ai/symptom-mapper", icon: Sparkles },

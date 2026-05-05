@@ -135,7 +135,7 @@ export default function PatientsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
                     {filtered.map((p, index) => (
                         <Link href={`/patients/${p.id}`} key={p.id} className={`block animate-fade-in-up stagger-${(index % 5) + 1}`}>
-                            <div className="glass-card p-5 group">
+                            <div className="glass-card p-5 group relative">
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:scale-110 transition-transform duration-300">
@@ -156,6 +156,20 @@ export default function PatientsPage() {
                                     <div><span className="text-[10px] uppercase tracking-wider text-gray-500">Admitted</span><p className="text-gray-800 dark:text-gray-200 font-semibold mt-0.5">{new Date(p.admittedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</p></div>
                                     <div><span className="text-[10px] uppercase tracking-wider text-gray-500">Phone</span><p className="text-gray-800 dark:text-gray-200 font-semibold mt-0.5">{p.phone}</p></div>
                                 </div>
+                                
+                                {p.status !== "Discharged" && (
+                                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+                                        <button 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                window.location.href = `/discharge/${p.id}`;
+                                            }}
+                                            className="text-xs font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-4 py-2 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
+                                        >
+                                            Discharge Wizard →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </Link>
                     ))}
